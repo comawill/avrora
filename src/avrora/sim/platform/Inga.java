@@ -47,6 +47,7 @@ import avrora.sim.platform.devices.AT45DB;
 import avrora.sim.platform.devices.BMP085;
 import avrora.sim.platform.devices.Button;
 import avrora.sim.platform.devices.L3G4200D;
+import avrora.sim.platform.devices.SDCard;
 import avrora.sim.radio.AT86RF231Radio;
 import avrora.sim.radio.ATmega128RFA1Radio;
 import avrora.sim.util.LCX138;
@@ -153,11 +154,16 @@ public class Inga extends Platform {
         spi2.connect(flash);
         addDevice("at45db", flash);
 
+        SDCard sdCard = new SDCard();
+        sdCard.connectCS(decoder.O5);
+        spi2.connect(sdCard);
+        addDevice("SDCard", sdCard);
+
         ADXL345 accelerometer = new ADXL345(sim);
         accelerometer.connectCS(decoder.O2);
         spi2.connect(accelerometer);
         addDevice("adxl345", accelerometer);
-        
+
         Button button = new Button();
         mcu.getPin(42).connectInput(button.output);
         addDevice("button", button);
