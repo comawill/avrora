@@ -37,13 +37,18 @@ import avrora.sim.mcu.Microcontroller;
 import avrora.sim.mcu.Microcontroller.Pin.InputListener;
 import avrora.sim.mcu.SPI;
 import avrora.sim.mcu.SPIDevice;
+import avrora.sim.platform.memory.FlashMemory;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * AT45DB flash module.
  *
  * @author Sebastian Willenborg
  */
-public class AT45DB implements SPIDevice, InputListener {
+public class AT45DB extends FlashMemory implements SPIDevice, InputListener {
 
     static final int OP_READ_DEVICE_ID = 0x9f;
     static final int OP_READ_STATUS_REG = 0xd7;
@@ -53,6 +58,31 @@ public class AT45DB implements SPIDevice, InputListener {
     static final int OP_BUFFER1_TO_PAGE_ERASE = 0x83;
     static final int OP_BUFFER2_TO_PAGE_ERASE = 0x86;
     static final int OP_CONFIG = 0x3d;
+
+    public AT45DB() {
+        setPageSize(528);
+        setNumberOfPages(4096);
+    }
+
+    @Override
+    public int[] getAvailablePageSizes() {
+        return new int[]{512, 528};
+    }
+
+    @Override
+    public int[] getAvailablePageNumbers() {
+        return new int[]{4096};
+    }
+
+    @Override
+    public void setOutputStream(RandomAccessFile destination) throws IOException {
+        super.setOutputStream(destination);
+        if (file != null) {
+            for (int i = 0; i < 4096; i++) {
+                loadPage(i, block[i]);
+            }
+        }
+    }
 
 
     private class StatusReg0 extends RWRegister {
@@ -203,6 +233,11 @@ public class AT45DB implements SPIDevice, InputListener {
                         }
                     }
                     System.arraycopy(buffer1, b_address, block[p_address], b_address, 528 - b_address);
+                    try {
+                        savePage(p_address, block[p_address]);
+                    } catch (IOException ex) {
+                        Logger.getLogger(AT45DB.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
                 break;
             case OP_BUFFER2_TO_PAGE_ERASE:
@@ -213,6 +248,11 @@ public class AT45DB implements SPIDevice, InputListener {
                         }
                     }
                     System.arraycopy(buffer2, b_address, block[p_address], b_address, 528 - b_address);
+                    try {
+                        savePage(p_address, block[p_address]);
+                    } catch (IOException ex) {
+                        Logger.getLogger(AT45DB.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
                 break;
             case OP_CONFIG:
@@ -220,7 +260,9 @@ public class AT45DB implements SPIDevice, InputListener {
                     if (addr0 == 0x2a && addr1 == 0x80) {
                         if (addr2 == 0xa7) {
                             page_power_2 = false;
+                            setPageSize(528);
                         } else if (addr2 == 0xa6) {
+                            setPageSize(512);
                             page_power_2 = true;
                         }
                     }
